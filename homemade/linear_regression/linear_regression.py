@@ -13,7 +13,7 @@ class LinearRegression:
         data:数据
         polynomial_degree: 是否做额外变换
         sinusoid_degree: 是否做额外变换
-        normalize_data: 是否标准化数据
+        normalize_data: 是否标准化数据 - index 0 填充常量数据1
         """
         (data_processed,
          features_mean,
@@ -28,7 +28,9 @@ class LinearRegression:
         self.sinusoid_degree = sinusoid_degree
         self.normalize_data = normalize_data
 
+        #self.data.shape 返回一个元组，其中包含了 self.data 的维度信息。这个元组通常具有两个元素，第一个元素表示行数，第二个元素表示列数。
         num_features = self.data.shape[1]
+        #zeros 是NumPy的一个函数，用于创建一个由零值组成的数组。在这里，它创建了一个二维数组，有 num_features 行和 1 列。
         self.theta = np.zeros((num_features, 1))
 
     def train(self, alpha, num_iterations=500):
@@ -77,6 +79,9 @@ class LinearRegression:
         """
         num_examples = data.shape[0]
         delta = LinearRegression.hypothesis(data, self.theta) - labels  # 预测值-真实值 得到残差
+        # np.dot 是NumPy库中的矩阵乘法函数。
+        # delta 是一个列向量，delta.T 是其转置，将其变为行向量。
+        # 执行了残差向量与其自身的转置的点积，这等于残差的平方和。
         cost = np.dot(delta, delta.T)  # 损失值
         return cost[0][0]
 

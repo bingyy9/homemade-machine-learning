@@ -46,9 +46,11 @@ if __name__ == '__main__':
     plt.title('GD')
     plt.show()
 
+    # 生成一系列用于模型预测的输入特征值 x_predictions
     # 测试线性回归模型
     predictions_num = 100  # 预测100个
-    # 拿最大和最小值画一条线
+    # 拿最大和最小值画一条线 创建了一个从训练数据 x_train 的最小值到最大值之间均匀分布的一维数组。
+    # reshape(predictions_num, 1) 将一维数组转换为形状为 (predictions_num, 1) 的二维数组，其中每个数据点是一行，这是因为模型通常期望输入是一个二维数组，其中每行代表一个数据点，每列代表一个特征。
     x_predictions = np.linspace(x_train.min(), x_train.max(), predictions_num).reshape(predictions_num, 1)
     y_predictions = linear_regression.predict(x_predictions)
 
