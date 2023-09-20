@@ -3,7 +3,7 @@
 import numpy as np
 from .normalize import normalize
 
-
+#特征变化，复杂化    x1, x2, x1^2, x2^2, x1*x2, x1*x2^2, etc.
 def generate_polynomials(dataset, polynomial_degree, normalize_data=False):
     """Extends data set with polynomial features of certain degree.
 

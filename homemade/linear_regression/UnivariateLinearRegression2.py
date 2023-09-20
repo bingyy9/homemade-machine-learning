@@ -7,6 +7,7 @@ plotly.offline.init_notebook_mode()
 
 from linear_regression import LinearRegression
 
+# 多特征demo
 # plotly.offline.init_notebook_mode()
 
 if __name__ == '__main__':

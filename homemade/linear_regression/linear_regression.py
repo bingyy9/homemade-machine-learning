@@ -32,6 +32,7 @@ class LinearRegression:
         num_features = self.data.shape[1]
         #zeros 是NumPy的一个函数，用于创建一个由零值组成的数组。在这里，它创建了一个二维数组，有 num_features 行和 1 列。
         self.theta = np.zeros((num_features, 1))
+        print("")
 
     def train(self, alpha, num_iterations=500):
         """
