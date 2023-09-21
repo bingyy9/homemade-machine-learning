@@ -2,7 +2,6 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import PolynomialFeatures
 import numpy as np
-from sklearn import linear_model
 from sklearn.linear_model import LinearRegression
 import matplotlib.pyplot as plt
 

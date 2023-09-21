@@ -1,6 +1,6 @@
 import numpy as np
 
-from homemade.linear_regression.utils.features import prepare_for_training
+from linear_regression.utils.features import prepare_for_training
 
 
 class LinearRegression:

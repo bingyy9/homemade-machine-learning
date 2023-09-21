@@ -2,8 +2,8 @@
 
 import numpy as np
 from scipy.optimize import minimize
-from ..utils.features import prepare_for_training
-from ..utils.hypothesis import sigmoid
+from linear_regression.utils.features import prepare_for_training
+from linear_regression.utils.hypothesis import sigmoid
 
 
 class LogisticRegression:
@@ -168,7 +168,8 @@ class LogisticRegression:
         label_diff = predictions - labels
 
         # Calculate regularization parameter.
-        regularization_param = (lambda_param / num_examples) * theta
+        regularization_param = (1 / num_examples) * theta
+        # regularization_param = (lambda_param / num_examples) * theta
 
         # Calculate gradient steps.
         gradients = (1 / num_examples) * (data.T @ label_diff)
@@ -203,6 +204,7 @@ class LogisticRegression:
         reg_param = (lambda_param / (2 * num_examples)) * (theta_cut.T @ theta_cut)
 
         # Calculate current predictions cost.
+        # labels[labels == 1] 表示对一个数组（或者类似数组的数据结构）进行条件筛选
         y_is_set_cost = labels[labels == 1].T @ np.log(predictions[labels == 1])
         y_is_not_set_cost = (1 - labels[labels == 0]).T @ np.log(1 - predictions[labels == 0])
         cost = (-1 / num_examples) * (y_is_set_cost + y_is_not_set_cost) + reg_param
@@ -221,6 +223,9 @@ class LogisticRegression:
         :return: predictions made by model based on provided theta.
         """
 
+        # "@" 表示矩阵乘法操作  A @ B= np.dot(A, B)
         predictions = sigmoid(data @ theta)
 
         return predictions
+
+
