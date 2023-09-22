@@ -1,5 +1,3 @@
-"""Logistic Regression Module"""
-
 import numpy as np
 from scipy.optimize import minimize
 from linear_regression.utils.features import prepare_for_training
@@ -7,225 +5,152 @@ from linear_regression.utils.hypothesis import sigmoid
 
 
 class LogisticRegression:
-    # pylint: disable=too-many-instance-attributes
-    """Logistic Regression Class"""
-
     def __init__(self, data, labels, polynomial_degree=0, sinusoid_degree=0, normalize_data=False):
-        # pylint: disable=too-many-arguments
-        """Logistic regression constructor.
-
-        :param data: training set.
-        :param labels: training set outputs (correct values).
-        :param polynomial_degree: degree of additional polynomial features.
-        :param sinusoid_degree: multipliers for sinusoidal features.
-        :param normalize_data: flag that indicates that features should be normalized.
         """
+        :param data: 数据集的自变量的数据,也叫特征值
+        :param labels: 数据集中的因变量的数据
+        :param polynomial_degree: 多项式的阶数
+        :param sinusoid_degree: 正弦函数的阶数
+        :param normalize_data: 是否需要归一化
+        """
+        # 1.对数据进行预处理操作
+        # 2.先得到所有的特征个数
+        # 3.初始化参数矩阵
 
-        # Normalize features and add ones column.
-        (
-            data_processed,
-            mean,
-            deviation
-        ) = prepare_for_training(data, polynomial_degree, sinusoid_degree, normalize_data)
+        # 将四个参数通过prepare_for_training函数进行预处理
+        (data_processed, features_mean, features_deviation) = \
+            prepare_for_training(data, polynomial_degree, sinusoid_degree, normalize_data)
 
+        # 将预处理后的数据赋值给类的属性
         self.data = data_processed
+        # 保存mean均值
+        self.features_mean = features_mean
+        # 保存deviation标准差
+        self.features_deviation = features_deviation
+        # 保存目标值labels,其实就是data的最后一列,也就是y值,是真实值
         self.labels = labels
+        # np.unique()函数是去除数组中的重复数字，并进行排序之后输出
         self.unique_labels = np.unique(labels)
-        self.features_mean = mean
-        self.features_deviation = deviation
+        # 保存多项式的阶数
         self.polynomial_degree = polynomial_degree
+        # 保存正弦函数的阶数
         self.sinusoid_degree = sinusoid_degree
+        # 保存是否需要归一化
         self.normalize_data = normalize_data
-
-        # Initialize model parameters.
+        # 计算出特征的个数，也就是data的列数
         num_features = self.data.shape[1]
-        num_unique_labels = np.unique(labels).shape[0]
-        self.thetas = np.zeros((num_unique_labels, num_features))
+        # 计算出目标值label的去掉重复值之后的个数,也就是记录这次逻辑回归的结果有几个类别
+        num_unique_labels = self.unique_labels.shape[0]
+        # 初始化参数矩阵theta,每一次分类的theta都是行向量,都保存在这个矩阵中
+        self.theta = np.zeros((num_unique_labels, num_features))
 
-    def train(self, lambda_param=0, max_iterations=1000):
-        """Trains logistic regression.
-
-        :param lambda_param: regularization parameter
-        :param max_iterations: maximum number of gradient descent iterations.
+    def train(self, max_iterations=1000):
         """
-
-        # Init cost history array.
+        训练模块，对每一次分类预处理之后,执行梯度下降算法
+        """
+        # cost_histories 用于保存每一个分类过程中,每次更新 theta之后的 损失值(也就是 ppt中的目标函数 的值)
+        # 如果 损失值 不断减小,说明参数 theta 不断优化,最终会找到 最优 的参数theta
         cost_histories = []
-
-        # Use One-vs-All approach and train the model several times for each label class.
-
         num_features = self.data.shape[1]
 
-        # Train the model to distinguish each label particularly.
-        for label_index, unique_label in enumerate(self.unique_labels):
-            current_initial_theta = np.copy(self.thetas[label_index]).reshape((num_features, 1))
+        # 遍历每一次分类
+        for unique_label_index, unique_label in enumerate(self.unique_labels):
+            # 将该次分类的theta取出来,并且转换成列向量,作为当前分类的初始theta
+            current_initial_theta = np.copy(self.theta[unique_label_index].reshape(num_features, 1))
 
-            # Convert labels to array of 0s and 1s for current label class.
-            current_labels = (self.labels == unique_label).astype(float)
+            # 将当前分类的标签值转换成true, false再转化成0, 1的形式,作为当前分类的标签值
+            current_lables = (self.labels == unique_label).astype(float)
+            (current_theta, cost_history) = \
+                self.gradient_descent(self.data, current_lables, current_initial_theta, max_iterations)
 
-            # Run gradient descent.
-            (current_theta, cost_history) = LogisticRegression.gradient_descent(
-                self.data,
-                current_labels,
-                current_initial_theta,
-                lambda_param,
-                max_iterations,
-            )
-
-            self.thetas[label_index] = current_theta.T
+            # 当前分类的theta更新完毕之后,将其保存到self.theta中
+            self.theta[unique_label_index] = current_theta.T
             cost_histories.append(cost_history)
 
-        # return self.theta, cost_history
-        return self.thetas, cost_histories
+        return self.theta, cost_histories
 
-    def predict(self, data):
-        """Prediction function"""
-
-        num_examples = data.shape[0]
-
-        data_processed = prepare_for_training(
-            data,
-            self.polynomial_degree,
-            self.sinusoid_degree,
-            self.normalize_data
-        )[0]
-
-        probability_predictions = LogisticRegression.hypothesis(data_processed, self.thetas.T)
-        max_probability_indices = np.argmax(probability_predictions, axis=1)
-        class_predictions = np.empty(max_probability_indices.shape, dtype=object)
-
-        for index, label in enumerate(self.unique_labels):
-            class_predictions[max_probability_indices == index] = label
-
-        return class_predictions.reshape((num_examples, 1))
-
-    @staticmethod
-    def gradient_descent(data, labels, initial_theta, lambda_param, max_iteration):
-        """Gradient descent function.
-
-        Iteratively optimizes theta model parameters.
-
-        :param data: the set of training or test data.
-        :param labels: training set outputs (0 or 1 that defines the class of an example).
-        :param initial_theta: initial model parameters.
-        :param lambda_param: regularization parameter.
-        :param max_iteration: maximum number of gradient descent steps.
-        """
-
-        # Initialize cost history list.
+    def gradient_descent(self, data, labels, current_initial_theta, max_iterations):
         cost_history = []
-
-        # Calculate the number of features.
         num_features = data.shape[1]
+        # 使用scipy中的minimize函数进行梯度下降,得到使得损失函数 minimize 时的的theta,
+        # return结果的是一个对象,其中x属性就是theta,fun属性就是损失值,success属性就是是否成功
 
-        # Launch gradient descent.
-        minification_result = minimize(
-            # Function that we're going to minimize.
-            lambda current_theta: LogisticRegression.cost_function(
-                data, labels, current_theta.reshape((num_features, 1)), lambda_param
-            ),
-            # Initial values of model parameter.
-            initial_theta,
-            # We will use conjugate gradient algorithm.
+        result = minimize(
+            # 第一个参数,目标函数
+            fun=lambda current_theta: self.cost_function(data, labels, current_theta.reshape(num_features, 1)),
+            # 第二个参数,最初始的theta值
+            x0=current_initial_theta,
+            # 第三个参数,选择优化策略,CG代表共轭梯度下降法
             method='CG',
-            # Function that will help to calculate gradient direction on each step.
-            jac=lambda current_theta: LogisticRegression.gradient_step(
-                data, labels, current_theta.reshape((num_features, 1)), lambda_param
-            ),
-            # Record gradient descent progress for debugging.
-            callback=lambda current_theta: cost_history.append(LogisticRegression.cost_function(
-                data, labels, current_theta.reshape((num_features, 1)), lambda_param
-            )),
-            options={'maxiter': max_iteration}
+            # 第四个参数,梯度下降迭代计算公式
+            jac=lambda current_theta: self.gradient_step(data, labels, current_theta.reshape(num_features, 1)),
+            # 第五个参数,每次迭代之后的回调函数,用于保存每次迭代之后的损失值
+            callback=lambda current_theta: cost_history.append(
+                self.cost_function(data, labels, current_theta.reshape((num_features, 1)))),
+            # 第六个参数,最大迭代次数
+            options={'maxiter': max_iterations}
         )
-
-        # Throw an error in case if gradient descent ended up with error.
-        if not minification_result.success:
-            raise ArithmeticError('Can not minimize cost function: ' + minification_result.message)
-
-        # Reshape the final version of model parameters.
-        optimized_theta = minification_result.x.reshape((num_features, 1))
-
+        if not result.success:
+            raise ArithmeticError('Can not minimize cost function' + result.message)
+        optimized_theta = result.x.reshape(num_features, 1)
         return optimized_theta, cost_history
 
-    @staticmethod
-    def gradient_step(data, labels, theta, lambda_param):
-        """GRADIENT STEP function.
-
-        It performs one step of gradient descent for theta parameters.
-
-        :param data: the set of training or test data.
-        :param labels: training set outputs (0 or 1 that defines the class of an example).
-        :param theta: model parameters.
-        :param lambda_param: regularization parameter.
+    def gradient_step(self, data, labels, theta):
+        """
+        梯度下降参数theta更新的计算方法，注意是矩阵运算
+        逻辑回归中使用的梯度下降的方法的是随机梯度下降
         """
 
-        # Initialize number of training examples.
+        # 样本个数
         num_examples = labels.shape[0]
+        # 预测值
+        predictions = self.hypothesis(data, theta)
+        # 求出预测值和真实值之间的差值
+        delta = predictions - labels
+        theta = (1 / num_examples) * np.dot(data.T, delta)
+        # 这里计算后得到的gradients是一个列向量包含所有的特征的梯度值，也就是每一个特征的theta值
+        # .flatten()函数是将多维数组降位一维数组,也就是将gradients转换成行向量
+        return theta.T.flatten()
 
-        # Calculate hypothesis predictions and difference with labels.
-        predictions = LogisticRegression.hypothesis(data, theta)
-        label_diff = predictions - labels
-
-        # Calculate regularization parameter.
-        regularization_param = (1 / num_examples) * theta
-        # regularization_param = (lambda_param / num_examples) * theta
-
-        # Calculate gradient steps.
-        gradients = (1 / num_examples) * (data.T @ label_diff)
-        regularized_gradients = gradients + regularization_param
-
-        # We should NOT regularize the parameter theta_zero.
-        regularized_gradients[0] = (1 / num_examples) * (data[:, [0]].T @ label_diff)
-
-        return regularized_gradients.T.flatten()
-
-    @staticmethod
-    def cost_function(data, labels, theta, lambda_param):
-        """Cost function.
-
-        It shows how accurate our model is based on current model parameters.
-
-        :param data: the set of training or test data.
-        :param labels: training set outputs (0 or 1 that defines the class of an example).
-        :param theta: model parameters.
-        :param lambda_param: regularization parameter.
+    def cost_function(self, data, labels, theta):
         """
-
-        # Calculate the number of training examples and features.
+        :param data:数据集的自变量的数据
+        :param labels:数据集中的因变量的数据
+        :param theta:参数矩阵,传入的参数要求是一个列向量
+        :return:损失值
+        """
         num_examples = data.shape[0]
-
-        # Calculate hypothesis.
-        predictions = LogisticRegression.hypothesis(data, theta)
-
-        # Calculate regularization parameter
-        # Remember that we should not regularize the parameter theta_zero.
-        theta_cut = theta[1:, [0]]
-        reg_param = (lambda_param / (2 * num_examples)) * (theta_cut.T @ theta_cut)
-
-        # Calculate current predictions cost.
-        # labels[labels == 1] 表示对一个数组（或者类似数组的数据结构）进行条件筛选
-        y_is_set_cost = labels[labels == 1].T @ np.log(predictions[labels == 1])
-        y_is_not_set_cost = (1 - labels[labels == 0]).T @ np.log(1 - predictions[labels == 0])
-        cost = (-1 / num_examples) * (y_is_set_cost + y_is_not_set_cost) + reg_param
-
-        # Let's extract cost value from the one and only cost numpy matrix cell.
-        return cost[0][0]
+        predictions = self.hypothesis(data, theta)
+        # 逻辑回归的损失函数
+        # y_is_one_cost存放的是y=1时的损失值
+        # labels[labels == 1]表示的是y=1的所有行
+        y_is_one_cost = (-1) * np.dot(labels[labels == 1].T, np.log(predictions[labels == 1]))
+        # y_is_zero_cost存放的是y=0时的损失值
+        y_is_zero_cost = (-1) * np.dot(1 - labels[labels == 0].T, np.log(1 - predictions[labels == 0]))
+        # 计算目标函数,也就是损失函数
+        cost = (1 / num_examples) * (y_is_one_cost + y_is_zero_cost)
+        return cost
 
     @staticmethod
     def hypothesis(data, theta):
-        """Hypothesis function.
-
-        It predicts the output values y based on the input values X and model parameters.
-
-        :param data: data set for what the predictions will be calculated.
-        :param theta: model params.
-        :return: predictions made by model based on provided theta.
         """
-
-        # "@" 表示矩阵乘法操作  A @ B= np.dot(A, B)
-        predictions = sigmoid(data @ theta)
-
+        :param data: 数据集的自变量的数据
+        :param theta: 参数矩阵
+        :return:预测值
+        """
+        predictions = sigmoid(np.dot(data, theta))
         return predictions
 
-
+    def predict(self, data):
+        """
+        用训练的参数模型，预测得到回归值结果
+        """
+        num_examples = data.shape[0]
+        data_processed = \
+            prepare_for_training(data, self.polynomial_degree, self.sinusoid_degree, self.normalize_data)[0]
+        prob = self.hypothesis(data_processed, self.theta.T)
+        max_prob_index = np.argmax(prob, axis=1)
+        class_prediction = np.empty(max_prob_index.shape, dtype=object)
+        for index, label in enumerate(self.unique_labels):
+            class_prediction[max_prob_index == index] = label
+        return class_prediction.reshape((num_examples, 1))
